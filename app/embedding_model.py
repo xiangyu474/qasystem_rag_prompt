@@ -29,7 +29,9 @@ def get_embedding(text):
     with torch.no_grad():
         # 不需要计算梯度，因为我们不进行模型参数的更新。
         outputs = embedding_model(**inputs)
-    
+    print(outputs.last_hidden_state.shape)
+    print(outputs.last_hidden_state.mean(dim=1).shape)
+    print(outputs.last_hidden_state.mean(dim=1).squeeze().shape)
     # 取最后一层隐藏状态的平均值(是一种常见做法）作为文本的嵌入向量
     embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().tolist()
     # outputs.last_hidden_state：获取最后一层的隐藏状态（每个单词或子词对应一个向量）。

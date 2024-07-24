@@ -15,18 +15,18 @@ def load_data(file_path = 'data\glaive_rag_v1.json'):
         data = json.load(f)
     return data
 
-def extract_cited_documents(answer):
-    """
-    从答案中提取引用的文档ID。
+# def extract_cited_documents(answer):
+#     """
+#     从答案中提取引用的文档ID。
     
-    Args:
-    - answer (str): 答案文本。
+#     Args:
+#     - answer (str): 答案文本。
     
-    Returns:
-    - List[str]: 引用的文档ID列表。
-    """
-    cited_docs = re.findall(r"<co:(\d+)>", answer)
-    return list(set(cited_docs))
+#     Returns:
+#     - List[str]: 引用的文档ID列表。
+#     """
+#     cited_docs = re.findall(r"<co:(\d+)>", answer)
+#     return list(set(cited_docs))
 
 # def preprocess_data(data):
 #     """
@@ -160,9 +160,8 @@ def preprocess_data(data):
                 else:
                     cited_docs = [doc_id.strip() for doc_id in cited_docs_str.split(',')]
             else:
-                answer = item["answer"].strip().replace('\n', '')
-                cited_docs = cited_docs_pattern.findall(answer)
-                cited_docs = list(set(cited_docs))
+                answer = ''
+                cited_docs = []
 
             preprocessed_data.append({
                 "system_prompt": system_prompt,
