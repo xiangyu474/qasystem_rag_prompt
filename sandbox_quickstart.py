@@ -64,35 +64,35 @@ with weaviate.connect_to_wcs(
     questions.data.insert_many(question_objs)
     response = questions.aggregate.over_all(total_count=True)
     print(response.total_count)
-    # print(questions)
+    print(questions)
 
-#     # Vector (near text) search:
-#     response_near_text= questions.query.near_text(
-#     query="what is dna?",  # The model provider integration will automatically vectorize the query
-#     limit=3
-# )
+    # Vector (near text) search:
+    response_near_text= questions.query.near_text(
+    query="what is dna?",  # The model provider integration will automatically vectorize the query
+    limit=3
+)
 
-#     for obj in response_near_text.objects:
-#         print(obj.properties)
+    for obj in response_near_text.objects:
+        print(obj.properties)
 
-#     # hybrid search:
-#     response_hybrid= questions.query.hybrid(
-#     query="what is dna?",  # The model provider integration will automatically vectorize the query
-#     limit=3
-# )
-#     for obj in response_hybrid.objects:
-#         print(obj.properties)
+    # hybrid search:
+    response_hybrid= questions.query.hybrid(
+    query="what is dna?",  # The model provider integration will automatically vectorize the query
+    limit=3
+)
+    for obj in response_hybrid.objects:
+        print(obj.properties)
    
-#RAG:generate_hybrid
-# instruction for the generative module
-    # user_question = "what is dna?"
-    # response = questions.generate.hybrid(
-    #     query=user_question,
-    #     query_properties=["answer"],
-    #     grouped_task=f"Based on the following documents, answer the question: {user_question}",
-    #     limit=2
-    # )
+RAG:generate_hybrid
+instruction for the generative module
+    user_question = "what is dna?"
+    response = questions.generate.hybrid(
+        query=user_question,
+        query_properties=["answer"],
+        grouped_task=f"Based on the following documents, answer the question: {user_question}",
+        limit=2
+    )
 
-    # print("generated answer:",response.generated)  # "Grouped task" generations are attributes of the entire response
-    # for o in response.objects:
-    #     print(o.properties['category'])  # To inspect the retrieved object
+    print("generated answer:",response.generated)  # "Grouped task" generations are attributes of the entire response
+    for o in response.objects:
+        print(o.properties['category'])  # To inspect the retrieved object

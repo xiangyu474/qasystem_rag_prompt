@@ -6,7 +6,7 @@ import torch
 # 尝试stella_en_400M_v5模型和分词器 -> 不行，强制依赖xformers，没有gpu
 # 尝试jamesgpt1/sf_model_e5 -> 可以，不用cuda
 # 尝试mixedbread-ai/mxbai-embed-large-v1 -> 可以
-# 尝试 Alibaba-NLP/gte-large-en-v1.5 -> 可以，用它了
+# 尝试 Alibaba-NLP/gte-large-en-v1.5 -> 要远程
 # 首次加载某个预训练模型时，Hugging Face 的 transformers 库会从 Hugging Face Hub 下载模型文件（例如权重、配置文件等）到本地缓存。
 tokenizer = AutoTokenizer.from_pretrained('Alibaba-NLP/gte-large-en-v1.5', trust_remote_code=True)
 embedding_model = AutoModel.from_pretrained('Alibaba-NLP/gte-large-en-v1.5', trust_remote_code=True)

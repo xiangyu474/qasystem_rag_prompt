@@ -1,10 +1,9 @@
-
 class: "Glaive"
 description: "This is a schema for RAG"
 vectorizer: "text2vec-huggingface"
 moduleConfig:
   text2vec-huggingface:
-    model: "Alibaba-NLP/gte-base-en-v1.5"
+    model: "intfloat/e5-small-v2"
     options:
       waitForModel: True
   generative-openai:

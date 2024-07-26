@@ -2,3 +2,4 @@ qaenv
 data
 memo
 .env
+formatted_json_test.py
