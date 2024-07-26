@@ -1,6 +1,6 @@
 from transformers import AutoModel, AutoTokenizer
 import torch
-
+# 0724:之前docker使用了默认的配置，缺少相应的module，重新配置后应该不需要这个手动embedding的函数了
 # 要开启developer mode，否则报无法符号链接的warning
 # 可以通过transformers-cli cache --cleanup --model <model_name>清理缓存！
 # 尝试stella_en_400M_v5模型和分词器 -> 不行，强制依赖xformers，没有gpu

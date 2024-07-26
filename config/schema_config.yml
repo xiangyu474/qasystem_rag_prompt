@@ -1,0 +1,24 @@
+
+class: "Glaive"
+description: "This is a schema for RAG"
+vectorizer: "text2vec-huggingface"
+moduleConfig:
+  text2vec-huggingface:
+    model: "Alibaba-NLP/gte-base-en-v1.5"
+    options:
+      waitForModel: True
+  generative-openai:
+    model: "gpt-3.5-turbo"
+    options:
+      waitForModel: True
+properties:
+- name: "doc_id"
+  dataType: ["string"]
+- name: "question"
+  dataType: ["text"]
+- name: "answer"
+  dataType: ["text"]
+- name: "title"
+  dataType: ["text"]
+- name: "text"
+  dataType: ["text"]

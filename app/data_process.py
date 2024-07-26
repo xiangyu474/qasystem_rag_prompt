@@ -139,7 +139,8 @@ def preprocess_data(data):
             preprocessed_documents = []
 
             for match in document_pattern.finditer(documents):
-                doc_id = match.group(1).strip()
+                # 给doc_id加上index，防止重复
+                doc_id = f"{idx}-{match.group(1).strip()}"  # Prefix doc_id with an index to make it unique
                 doc_title = match.group(2).strip()
                 doc_text = match.group(3).strip()
                 preprocessed_documents.append({
@@ -158,7 +159,7 @@ def preprocess_data(data):
                 if cited_docs_str.lower() == 'none':
                     cited_docs = []
                 else:
-                    cited_docs = [doc_id.strip() for doc_id in cited_docs_str.split(',')]
+                    cited_docs = [f"{idx}-{doc_id.strip()}" for doc_id in cited_docs_str.split(',')]
             else:
                 answer = ''
                 cited_docs = []

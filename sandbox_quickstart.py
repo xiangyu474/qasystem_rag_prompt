@@ -8,10 +8,13 @@ load_dotenv()
 
 # Set these environment variables
 URL = os.getenv("WCS_URL")
-# print("URL:",URL)
 APIKEY = os.getenv("WCS_API_KEY")
-# print("APIKEY:",APIKEY)
+# embedding model
 HF_API_KEY = os.getenv("HF_API_KEY")
+# generative model
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY_api2d")
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
+# print("OPENAI_API_KEY:",OPENAI_API_KEY)
 
 # 定义集合架构
 schema = {
@@ -19,22 +22,12 @@ schema = {
     "vectorizer": "text2vec-huggingface",
     "moduleConfig": {
         "text2vec-huggingface": {
-            "pooling": "mean",
-            # 尝试换一个小模型：
-            # avsolatorio/NoInstruct-small-Embedding-v0 ->超时
-            # sentence-transformers/all-MiniLM-L12-v2还是超时
-            "model": "sentence-transformers/all-MiniLM-L12-v2",
-            # "model": "Alibaba-NLP/gte-large-en-v1.5",
-            # 也许因为模型太大所以一直报503 error:timeout
-            "Options":{"wait_for_model":True,
-                       "trust_remote_code":True}
-            # 这样写根本不生效，来源：https://huggingface.co/docs/api-inference/detailed_parameters，https://discuss.huggingface.co/t/what-is-model-is-currently-loading/13917/12
-            # 考虑全部使用手动嵌入，不在插数据的时候用vecotorizer自动嵌入了
+            "model": "intfloat/e5-small-v2",
+            "options": {"waitForModel": True}
         },
-        "generative-huggingface": {
-            "model": "google/flan-t5-base",
-            "Options":{"wait_for_model":True,
-                       "trust_remote_code":True}
+        "generative-openai": {
+            "model": "gpt-3.5-turbo",
+            "options": {"waitForModel": True}
         }
     }
 }
@@ -47,20 +40,17 @@ with weaviate.connect_to_wcs(
     cluster_url=URL,
     auth_credentials=weaviate.auth.AuthApiKey(APIKEY),
     headers={"X-HuggingFace-Api-Key": HF_API_KEY,
-    # 添加 Hugging Face 访问令牌,否则有报错raise WeaviateInsertManyAllFailedError(
-    # weaviate.exceptions.WeaviateInsertManyAllFailedError: Every object failed during insertion. Here is the set of all errors: failed with status: 429 error: Rate limit reached. Please log in or use a HF access token
-    }) as client:
+             "X-OpenAI-Api-Key": OPENAI_API_KEY,
+             "X-OpenAI-BaseURL": OPENAI_BASE_URL}) as client:
 
     print("if client is ready:",client.is_ready())
 
-    client.collections.delete("Question")
-    collections = client.collections.list_all()
-    collection_exists = "Question" in collections
-    print("if collection exists:",collection_exists)
+    if client.collections.exists("Question"):  # In case we've created this collection before
+        client.collections.delete("Question")  # THIS WILL DELETE ALL DATA IN THE COLLECTION
+
+    # Step 4: Define a data collection
+    questions = client.collections.create_from_dict(schema) 
     
-    if not collection_exists:
-        # Step 4: Define a data collection
-        questions = client.collections.create_from_dict(schema)  
     # Step 5: Add objects
     question_objs = list()
     for i, d in enumerate(data):
@@ -68,8 +58,41 @@ with weaviate.connect_to_wcs(
             "answer": d["Answer"],
             "question": d["Question"],
             "category": d["Category"],
+            "index": i
         })
-
-    questions = client.collections.get("Question")
+    # questions = client.collections.get("Question")
     questions.data.insert_many(question_objs)
-    print(questions)
+    response = questions.aggregate.over_all(total_count=True)
+    print(response.total_count)
+    # print(questions)
+
+#     # Vector (near text) search:
+#     response_near_text= questions.query.near_text(
+#     query="what is dna?",  # The model provider integration will automatically vectorize the query
+#     limit=3
+# )
+
+#     for obj in response_near_text.objects:
+#         print(obj.properties)
+
+#     # hybrid search:
+#     response_hybrid= questions.query.hybrid(
+#     query="what is dna?",  # The model provider integration will automatically vectorize the query
+#     limit=3
+# )
+#     for obj in response_hybrid.objects:
+#         print(obj.properties)
+   
+#RAG:generate_hybrid
+# instruction for the generative module
+    # user_question = "what is dna?"
+    # response = questions.generate.hybrid(
+    #     query=user_question,
+    #     query_properties=["answer"],
+    #     grouped_task=f"Based on the following documents, answer the question: {user_question}",
+    #     limit=2
+    # )
+
+    # print("generated answer:",response.generated)  # "Grouped task" generations are attributes of the entire response
+    # for o in response.objects:
+    #     print(o.properties['category'])  # To inspect the retrieved object
