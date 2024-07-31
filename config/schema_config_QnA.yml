@@ -1,5 +1,5 @@
-class: "Glaive"
-description: "This is a schema for RAG"
+class: "QnA"
+description: "This is a schema for Query-Answer-Cited Document"
 vectorizer: "text2vec-huggingface"
 moduleConfig:
   text2vec-huggingface:
@@ -11,13 +11,9 @@ moduleConfig:
     options:
       waitForModel: True
 properties:
-- name: "doc_id"
-  dataType: ["string"]
+- name: "cited_documents"
+  dataType: ["Documents"]
 - name: "question"
   dataType: ["text"]
 - name: "answer"
-  dataType: ["text"]
-- name: "title"
-  dataType: ["text"]
-- name: "text"
   dataType: ["text"]

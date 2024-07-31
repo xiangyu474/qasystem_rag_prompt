@@ -15,6 +15,7 @@ HF_API_KEY = os.getenv("HF_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY_api2d")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL")
 # print("OPENAI_API_KEY:",OPENAI_API_KEY)
+# print("OPENAI_BASE_URL:",OPENAI_BASE_URL)
 
 # 定义集合架构
 schema = {
@@ -63,28 +64,28 @@ with weaviate.connect_to_wcs(
     # questions = client.collections.get("Question")
     questions.data.insert_many(question_objs)
     response = questions.aggregate.over_all(total_count=True)
-    print(response.total_count)
-    print(questions)
+    # print(response.total_count)
+    # print(questions)
 
-    # Vector (near text) search:
-    response_near_text= questions.query.near_text(
-    query="what is dna?",  # The model provider integration will automatically vectorize the query
-    limit=3
-)
+#     # Vector (near text) search:
+#     response_near_text= questions.query.near_text(
+#     query="what is dna?",  # The model provider integration will automatically vectorize the query
+#     limit=3
+# )
 
-    for obj in response_near_text.objects:
-        print(obj.properties)
+#     for obj in response_near_text.objects:
+#         print(obj.properties)
 
-    # hybrid search:
-    response_hybrid= questions.query.hybrid(
-    query="what is dna?",  # The model provider integration will automatically vectorize the query
-    limit=3
-)
-    for obj in response_hybrid.objects:
-        print(obj.properties)
+#     # hybrid search:
+#     response_hybrid= questions.query.hybrid(
+#     query="what is dna?",  # The model provider integration will automatically vectorize the query
+#     limit=3
+# )
+#     for obj in response_hybrid.objects:
+#         print(obj.properties)
    
-RAG:generate_hybrid
-instruction for the generative module
+# RAG:generate_hybrid
+# instruction for the generative module
     user_question = "what is dna?"
     response = questions.generate.hybrid(
         query=user_question,
