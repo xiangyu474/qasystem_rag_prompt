@@ -1,7 +1,7 @@
 import json
 import re
 
-def load_data(file_path = 'data\glaive_rag_v1.json'):
+def load_data(file_path = 'data\\glaive_rag_v1.json'):
     """
     从JSON文件加载数据。
     
@@ -179,8 +179,17 @@ def preprocess_data(data):
 
     return preprocessed_data
 
-if __name__ == "__main__":
-    data = load_data(file_path = 'data\special_case.json')
+def write_preprocessed_data(preprocessed_data, file_path):
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
+
+def main_preprocess_data():
+    input_path = 'data\\glaive_rag_v1.json'
+    output_path = 'data\\preprocessed_output.json'
+    data = load_data(file_path = input_path)
     preprocessed_data = preprocess_data(data)
-    with open('data\preprocessed_output.json', 'w', encoding='utf-8') as f:
-            json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
+    write_preprocessed_data(preprocessed_data, output_path)
+    print("Preprocessed data saved to:", output_path)
+
+if __name__ == "__main__":
+    main_preprocess_data()

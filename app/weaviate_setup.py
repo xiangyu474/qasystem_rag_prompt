@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 import yaml
 import json
+import ijson
 import requests
 import logging
 from data_process import preprocess_data,load_data
@@ -45,7 +46,7 @@ def create_local_client():
     client = weaviate.connect_to_local(headers = headers,
                                        skip_init_checks=True,
                                        additional_config=AdditionalConfig(
-                                       timeout=Timeout(init=30, query=60, insert=120)),
+                                       timeout=Timeout(init=50, query=100, insert=150)),
                                        )
     return client
 
@@ -72,69 +73,76 @@ def create_collection(client,collection_name,schema):
     collection = client.collections.create_from_dict(schema) 
     return collection
 
-###############################################################################
-def import_data_original(client,data):
+def import_QA_data(client, file_path):
     qa_collection = client.collections.get("QnA")
-    doc_collection = client.collections.get("Documents")
     qa_counter = 0
-    doc_counter = 0
-    interval = 1000
-    with client.batch.fixed_size(batch_size=interval) as batch:
-        ##########################################################
-        for d in data:
-            try:
-                uuid_QnA = weaviate.util.generate_uuid5(d["question"])
-                properties_QnA = {
-                    "question": d["question"],
-                    "answer": d["answer"]
-                }
-                batch.add_object(uuid=uuid_QnA,
-                                properties=properties_QnA,
-                                collection = "QnA")
-                qa_counter += 1
-                if qa_counter % interval == 0:
-                        logger.info(f"Inserted {qa_counter} QA pairs so far.")
-            except Exception as e:
-                logger.error(f"Error inserting question with data: {d}: {str(e)}")
-            ##########################################################
-            for doc in d["documents"]:
+    interval = 500
+    qa_uuid_dict = {}
+    with qa_collection.batch.fixed_size(batch_size=interval) as batch:
+        with open(file_path, "rb") as f:
+            objects = ijson.items(f, "item")
+            for d in objects:
                 try:
-                    properties_Doc={
-                        "doc_id": doc["doc_id"],
-                        "title": doc["title"],
-                        "text": doc["text"]
-                        }
-                    uuid_Doc = weaviate.util.generate_uuid5(doc["doc_id"])
-                    batch.add_object(uuid=uuid_Doc,
-                                    properties=properties_Doc,
-                                    collection = "Documents")
-                    doc_counter += 1
-                    if doc_counter % interval == 0:
-                        logger.info(f"Inserted {doc_counter} documents so far.")
+                    uuid_QnA = weaviate.util.generate_uuid5(d["question"])
+                    qa_uuid_dict[d["question"]] = uuid_QnA
+                    properties_QnA = {
+                        "question": d["question"],
+                        "answer": d["answer"]
+                    }
+                    batch.add_object(uuid=uuid_QnA,
+                                     properties=properties_QnA)
+                    qa_counter += 1
+                    if qa_counter % interval == 0:
+                        logging.info(f"Inserted {qa_counter} QA pairs so far.")
                 except Exception as e:
-                    logger.error(f"Error inserting document with data: {doc}: {str(e)}")
-            ##########################################################
-            for doc_id in d["cited_documents"]:
-                try:
-                    uuid_Doc = weaviate.util.generate_uuid5(doc_id)
-                    batch.add_reference(from_collection="QnA", 
-                                        from_uuid=uuid_QnA, 
-                                        from_property="cited_documents", 
-                                        to=uuid_Doc)
-                except Exception as e:
-                    logger.error(f"Error inserting reference with data: {doc_id}: {str(e)}")
-            ##########################################################
-    qa_collection = client.collections.get("QnA")
-    doc_collection = client.collections.get("Documents")
+                    logging.error(f"Error inserting question with data: {d}: {str(e)}")
+    return qa_uuid_dict
 
-    failed_objs_b = client.batch.failed_objects
-    if failed_objs_b:
-        logger.error(f"Failed objects: {failed_objs_b}") 
-    qa_count = qa_collection.aggregate.over_all(total_count=True).total_count
-    doc_count = doc_collection.aggregate.over_all(total_count=True).total_count
-    logger.info(f"Total successful QnA count: {qa_count}, Total successful Documents count: {doc_count}")
-    return qa_collection, doc_collection
-###############################################################################
+def import_Doc_data(client, file_path):
+    doc_collection = client.collections.get("Documents")
+    doc_counter = 0
+    interval = 500
+    with doc_collection.batch.fixed_size(batch_size=interval) as batch:
+        with open(file_path, "rb") as f:
+            objects = ijson.items(f, "item")
+            for d in objects:
+                for doc in d["documents"]:
+                    try:
+                        properties_Doc = {
+                            "doc_id": doc["doc_id"],
+                            "title": doc["title"],
+                            "text": doc["text"]
+                        }
+                        uuid_Doc = weaviate.util.generate_uuid5(doc["doc_id"])
+                        batch.add_object(uuid=uuid_Doc,
+                                         properties=properties_Doc)
+                        doc_counter += 1
+                        if doc_counter % interval == 0:
+                            logging.info(f"Inserted {doc_counter} documents so far.")
+                    except Exception as e:
+                        logging.error(f"Error inserting document with data: {doc}: {str(e)}")
+
+def add_reference(client, file_path, qa_uuid_dict):
+    ref_counter = 0
+    interval = 500
+    with client.batch.fixed_size(batch_size=interval) as batch:
+        with open(file_path, "rb") as f:
+            objects = ijson.items(f, "item")
+            for d in objects:
+                uuid_QnA = qa_uuid_dict.get(d["question"])
+                if uuid_QnA:
+                    for doc_id in d["cited_documents"]:
+                        try:
+                            uuid_Doc = weaviate.util.generate_uuid5(doc_id)
+                            batch.add_reference(from_collection="QnA",
+                                                from_uuid=uuid_QnA,
+                                                from_property="cited_documents",
+                                                to=uuid_Doc)
+                            ref_counter += 1
+                            if ref_counter % interval == 0:
+                                logging.info(f"Inserted {ref_counter} references so far.")
+                        except Exception as e:
+                            logging.error(f"Error inserting reference with data: {doc_id}: {str(e)}")
 
 def import_data(client,data):
     qa_collection = client.collections.get("QnA")
@@ -235,84 +243,25 @@ if __name__ == "__main__":
 
     schema_Doc = load_config(file_path='config\\schema_config_Doc.yml')
     schema_QnA = load_config(file_path='config\\schema_config_QnA.yml')
-
-    original_data = load_data(file_path = 'data\\test.json')
-    preprocessed_data = preprocess_data(original_data)
-    with open('data\\preprocessed_output.json', 'w', encoding='utf-8') as f:
-            json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
-
-    with create_local_client() as client:
-        if client.is_ready():
-            logger.info("Client is ready.")    
-            collection_Doc = create_collection(client,"Documents",schema_Doc)
-            collection_QnA = create_collection(client,"QnA",schema_QnA)
-            
-            qa_collection, doc_collection = import_data(client,preprocessed_data)
-            count_check(client,"Documents")
-            count_check(client,"QnA")
-            # qa_collection = client.collections.get("QnA")   
-            # doc_collection = client.collections.get("Documents")
-            # qa_count = qa_collection.aggregate.over_all(total_count=True).total_count
-            # doc_count = doc_collection.aggregate.over_all(total_count=True).total_count
-            # logger.info(f"Total successful QnA count: {qa_count}, Total successful Documents count: {doc_count}")
-            # print("qa_collection:",qa_collection)
-            # print("doc_collection:",doc_collection)
-            ############################ Start:Create Test Collection ############################
-            # test_schema = {
-            #                 "class": "Question",
-            #                 "vectorizer": "text2vec-huggingface",
-            #                 "moduleConfig": {
-            #                     "text2vec-huggingface": {
-            #                         "model": "intfloat/e5-small-v2",
-            #                         "options": {"waitForModel": True}
-            #                     },
-            #                     "generative-openai": {
-            #                         "model": "gpt-3.5-turbo",
-            #                         "options": {"waitForModel": True}
-            #                     }
-            #                 }
-            #             }
-            # resp = requests.get('https://raw.githubusercontent.com/weaviate-tutorials/quickstart/main/data/jeopardy_tiny.json')
-            # data = json.loads(resp.text) 
-            # if client.collections.exists("Question"):  # In case we've created this collection before
-            #     client.collections.delete("Question")  # THIS WILL DELETE ALL DATA IN THE COLLECTION
-
-            # # Step 4: Define a data collection
-            # test_collection = client.collections.create_from_dict(test_schema) 
-            
-            # # Step 5: Add objects
-            # test_objs = list()
-            # for i, d in enumerate(data):
-            #     test_objs.append({
-            #         "answer": d["Answer"],
-            #         "question": d["Question"],
-            #         "category": d["Category"],
-            #         "index": i
-            #     })
-            # # questions = client.collections.get("Question")
-            # test_collection.data.insert_many(test_objs)
-            # print("test_collection:",test_collection)
-            # user_question = "what is dna?"
-            # response = test_collection.generate.hybrid(
-            #     query=user_question,
-            #     query_properties=["answer"],
-            #     grouped_task=f"Based on the following documents, answer the question: {user_question}",
-            #     limit=1
-            # )
-
-            # print("generated answer:",response.generated)  # "Grouped task" generations are attributes of the entire response
-            # for o in response.objects:
-            #     print(o.properties['category'])  # To inspect the retrieved object
-            ############################ End:Create Test Collection ############################
-            user_question = "how to balance income and happiness"
-            cited_documents_reference = QueryReference(
-                                                    link_on="cited_documents",
-                                                    return_properties=["title", "text"])
-            response = qa_collection.query.hybrid(query = user_question,
-                                                    limit=3,
-                                                    query_properties=["question^2","answer"],
-                                                    return_references=cited_documents_reference
-                                                    )
+    print(schema_Doc.get("class"))
+    # with create_local_client() as client:
+    #     if client.is_ready():
+    #         logger.info("Client is ready.")    
+    #         collection_Doc = create_collection(client,"Documents",schema_Doc)
+    #         collection_QnA = create_collection(client,"QnA",schema_QnA)
+            # qa_collection, doc_collection = import_data(client,preprocessed_data)
+            # count_check(client,"Documents")
+            # count_check(client,"QnA")
+            ############################ Start:Test ############################
+            # user_question = "how to balance income and happiness"
+            # cited_documents_reference = QueryReference(
+            #                                         link_on="cited_documents",
+            #                                         return_properties=["title", "text"])
+            # response = qa_collection.query.hybrid(query = user_question,
+            #                                         limit=3,
+            #                                         query_properties=["question^2","answer"],
+            #                                         return_references=cited_documents_reference
+            #                                         )
             # response = qa_collection.generate.hybrid(query = user_question,
             #                                         limit=3,
             #                                         query_properties=["question"],
@@ -329,19 +278,20 @@ if __name__ == "__main__":
             #                                         <question>
             #                                         {user_question}
             #                                         </question>
-            #                                         and put your reasoning in <thinking></thinking> tag without adding a preamble.
+            #                                         and put your reasoning in <thinking></thinking> tag without adding a preamble, within 50 words.
             #                                         From your reasoning in <thinking> answer the <question> and put you response 
-            #                                         in <answer>''',
+            #                                         in <answer>,within 50 words.''',
             #                                         return_references=cited_documents_reference
             #                                         )
             
             # print("generated answer:",response.generated)
-            for i,o in enumerate(response.objects):
-                print(f"question{i}:",o.properties["question"])
-                print(f"answer{i}:",o.properties["answer"])
-                for j,ref_obj in enumerate(o.references["cited_documents"].objects):
-                    print(f"cited_documents{j}'s title:",ref_obj.properties["title"])
-                    print(f"cited_documents{j}'s text:",ref_obj.properties["text"])
+            # for i,o in enumerate(response.objects):
+            #     print(f"question {i}:",o.properties["question"])
+            #     print(f"answer {i}:",o.properties["answer"])
+            #     for j,ref_obj in enumerate(o.references["cited_documents"].objects):
+            #         print(f"cited_documents {j}'s title:",ref_obj.properties["title"])
+            #         print(f"cited_documents {j}'s text:",ref_obj.properties["text"])
+            ############################ End:Test ############################
             # 如果是本地部署可通过http://localhost:8080/v1/objects 查看数据
-        else:
-            logger.error("Client is not ready.")
+        # else:
+        #     logger.error("Client is not ready.")
