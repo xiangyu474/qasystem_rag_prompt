@@ -13,6 +13,9 @@ moduleConfig:
 properties:
 - name: "cited_documents"
   dataType: ["Documents"]
+- name: "question_id"
+  dataType: ["number"]
+  skip_vectorization: True
 - name: "question"
   dataType: ["text"]
 - name: "answer"

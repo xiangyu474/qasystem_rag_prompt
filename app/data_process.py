@@ -1,6 +1,5 @@
 import json
 import re
-
 def load_data(file_path = 'data\\glaive_rag_v1.json'):
     """
     从JSON文件加载数据。
@@ -149,6 +148,7 @@ def preprocess_data(data):
                     "text": doc_text
                 })
             
+            question_id = idx
             question = item["question"].strip().replace('\n', '')
             answer_mode = item["answer_mode"].strip().replace('\n', '')
 
@@ -165,12 +165,11 @@ def preprocess_data(data):
                 cited_docs = []
 
             preprocessed_data.append({
-                "system_prompt": system_prompt,
-                "documents": preprocessed_documents,
+                "question_id": question_id,
                 "question": question,
-                "answer_mode": answer_mode,
                 "answer": answer,
-                "cited_documents": cited_docs
+                "cited_documents": cited_docs,
+                "documents": preprocessed_documents
             })
 
         except (IndexError, AttributeError) as e:
@@ -184,8 +183,8 @@ def write_preprocessed_data(preprocessed_data, file_path):
         json.dump(preprocessed_data, f, ensure_ascii=False, indent=4)
 
 def main_preprocess_data():
-    input_path = 'data\\glaive_rag_v1.json'
-    output_path = 'data\\preprocessed_output.json'
+    input_path = 'data\glaive_rag_v1.json'
+    output_path = 'data\preprocessed_output.json'
     data = load_data(file_path = input_path)
     preprocessed_data = preprocess_data(data)
     write_preprocessed_data(preprocessed_data, output_path)
